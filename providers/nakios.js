@@ -1,118 +1,108 @@
 // =============================================================
-// Provider Nuvio : Nakios.art (VF / VOSTFR / MULTI)
-// Version : 3.4.0
-// Fix : URLs proxy → décoder url= (decodeURIComponent)
-//       et utiliser le domaine de l'URL décodée comme Referer
-//       xalaflix et darkibox acceptent leurs propres domaines
+// Provider Nuvio : Nakios (VF / VOSTFR / MULTI)
+// Version : 3.8.2
+// - Added Metadata: Resolution, Size, Language, Format
+// - Visual: Icons and formatted title strings
 // =============================================================
 
-var NAKIOS_API     = 'https://api.nakios.fit/api';
-var NAKIOS_BASE    = 'https://nakios.fit';
-var NAKIOS_REFERER = 'https://nakios.fit/';
-var NAKIOS_UA      = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+var NAKIOS_UA       = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+var DOMAINS_URL     = 'https://raw.githubusercontent.com/wooodyhood/nuvio-repo/main/domains.json';
+var NAKIOS_FALLBACK = 'fit';
 
-function fetchSources(tmdbId, mediaType, season, episode) {
-  var url = mediaType === 'tv'
-    ? NAKIOS_API + '/sources/tv/' + tmdbId + '/' + (season || 1) + '/' + (episode || 1)
-    : NAKIOS_API + '/sources/movie/' + tmdbId;
+var _cachedEndpoint = null;
 
-  console.log('[Nakios] Fetch sources: ' + url);
+// ─── Construction de l'endpoint ──────────────────────────────
 
-  return fetch(url, {
-    method: 'GET',
-    headers: {
-      'User-Agent': NAKIOS_UA,
-      'Referer':    NAKIOS_REFERER,
-      'Origin':     NAKIOS_BASE
-    }
-  })
-    .then(function(res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
-    })
+function buildEndpoint(tld) {
+  var baseDomain = tld.includes('nakios') ? tld : 'nakios.' + tld;
+  return {
+    base:    'https://' + baseDomain,
+    api:     'https://api.' + baseDomain + '/api',
+    referer: 'https://' + baseDomain + '/'
+  };
+}
+
+function detectEndpoint() {
+  if (_cachedEndpoint) return Promise.resolve(_cachedEndpoint);
+  return fetch(DOMAINS_URL)
+    .then(function(res) { return res.ok ? res.json() : Promise.reject(); })
     .then(function(data) {
-      if (!data || !data.success || !data.sources || data.sources.length === 0) {
-        throw new Error('Aucune source');
-      }
-      return data.sources;
+      _cachedEndpoint = buildEndpoint(data.nakios || NAKIOS_FALLBACK);
+      return _cachedEndpoint;
+    })
+    .catch(function() {
+      _cachedEndpoint = buildEndpoint(NAKIOS_FALLBACK);
+      return _cachedEndpoint;
     });
 }
 
-// Extrait le domaine origin depuis une URL (ex: https://zebi.xalaflix.design/...)
-// → https://zebi.xalaflix.design
+// ─── Logic ───────────────────────────────────────────────────
+
 function extractOrigin(url) {
-  var match = url.match(/^(https?:\/\/[^\/]+)/);
-  return match ? match[1] : null;
+  var m = url.match(/^(https?:\/\/[^\/]+)/);
+  return m ? m[1] : null;
 }
 
-// Résout une URL source :
-// - URL directe http → retournée telle quelle
-// - URL proxy relative /api/sources/proxy?url=ENCODED&s=xxx
-//   → décoder le paramètre url= avec decodeURIComponent
-//   → utiliser le domaine de l'URL décodée comme Referer/Origin
-function resolveSource(source) {
+function resolveSource(source, endpoint) {
   var rawUrl = source.url || '';
-
-  // URL directe
   if (rawUrl.startsWith('http')) {
-    var format = (source.isM3U8 || rawUrl.indexOf('.m3u8') !== -1) ? 'm3u8' : 'mp4';
     return {
-      url:     rawUrl,
-      format:  format,
-      referer: NAKIOS_REFERER,
-      origin:  NAKIOS_BASE
+      url: rawUrl,
+      format: (source.isM3U8 || rawUrl.indexOf('.m3u8') !== -1) ? 'm3u8' : 'mp4',
+      referer: endpoint.referer,
+      origin: endpoint.base
     };
   }
-
-  // URL proxy relative → extraire et décoder le paramètre url=
   if (rawUrl.charAt(0) === '/') {
     var urlMatch = rawUrl.match(/[?&]url=([^&]+)/);
     if (!urlMatch) return null;
-
     var decoded;
-    try {
-      decoded = decodeURIComponent(urlMatch[1]);
-    } catch (e) {
-      return null;
-    }
-
-    if (!decoded || !decoded.startsWith('http')) return null;
-
+    try { decoded = decodeURIComponent(urlMatch[1]); } catch (e) { return null; }
     var origin = extractOrigin(decoded);
-    if (!origin) return null;
-
     return {
-      url:     decoded,
-      format:  'm3u8',
-      referer: origin + '/',
-      origin:  origin
+      url: decoded,
+      format: 'm3u8',
+      referer: origin ? origin + '/' : endpoint.referer,
+      origin: origin || endpoint.base
     };
   }
-
   return null;
 }
 
-function normalizeSources(sources) {
+// ─── UI / Formatting ─────────────────────────────────────────
+
+function normalizeSources(sources, endpoint) {
   var results = [];
-
   for (var i = 0; i < sources.length; i++) {
-    var source = sources[i];
+    var s = sources[i];
+    if (s.isEmbed) continue;
 
-    if (source.isEmbed) continue;
-
-    var lang    = (source.lang    || 'MULTI').toUpperCase();
-    var quality = source.quality  || 'HD';
-    var name    = source.name     || 'Nakios';
-
-    var resolved = resolveSource(source);
+    var resolved = resolveSource(s, endpoint);
     if (!resolved) continue;
 
-    console.log('[Nakios] +source: ' + quality + ' | ' + lang + ' | ' + resolved.format +
-                ' | referer=' + resolved.referer + ' → ' + resolved.url.substring(0, 70));
+    // --- Metadata Preparation ---
+    var quality = s.quality || 'HD';
+    var lang    = (s.lang || 'MULTI').toUpperCase();
+    var size    = s.size ? ' 💾 ' + s.size : '';
+    var format  = resolved.format.toUpperCase();
+    
+    // Language Icons
+    var langIcon = '🌐';
+    if (lang.includes('VF')) langIcon = '🇫🇷';
+    if (lang.includes('VOST')) langIcon = '🔡';
+    if (lang.includes('MULTI')) langIcon = '🌍';
+
+    // --- Title Construction ---
+    // Example: 🎬 Nakios | 4K | 🇫🇷 MULTI | [M3U8] | 💾 1.2GB
+    var displayTitle = '🎬 ' + (s.name || 'Nakios') + 
+                       ' | 📺 ' + quality + 
+                       ' | ' + langIcon + ' ' + lang + 
+                       ' | 🛠️ [' + format + ']' + 
+                       size;
 
     results.push({
       name:    'Nakios',
-      title:   name + ' - ' + lang + ' ' + quality,
+      title:   displayTitle,
       url:     resolved.url,
       quality: quality,
       format:  resolved.format,
@@ -123,23 +113,28 @@ function normalizeSources(sources) {
       }
     });
   }
-
   return results;
 }
 
-function getStreams(tmdbId, mediaType, season, episode) {
-  console.log('[Nakios] START tmdbId=' + tmdbId + ' type=' + mediaType + ' S' + season + 'E' + episode);
+// ─── Entry Point ─────────────────────────────────────────────
 
-  return fetchSources(tmdbId, mediaType, season, episode)
-    .then(function(sources) {
-      var results = normalizeSources(sources);
-      console.log('[Nakios] ' + results.length + ' source(s) disponible(s)');
-      return results;
+function getStreams(tmdbId, mediaType, season, episode) {
+  return detectEndpoint()
+    .then(function(endpoint) {
+      var url = mediaType === 'tv'
+        ? endpoint.api + '/sources/tv/' + tmdbId + '/' + (season || 1) + '/' + (episode || 1)
+        : endpoint.api + '/sources/movie/' + tmdbId;
+
+      return fetch(url, {
+        headers: { 'User-Agent': NAKIOS_UA, 'Referer': endpoint.referer }
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (!data.success || !data.sources) return [];
+        return normalizeSources(data.sources, endpoint);
+      });
     })
-    .catch(function(err) {
-      console.error('[Nakios] Erreur: ' + (err.message || String(err)));
-      return [];
-    });
+    .catch(function() { return []; });
 }
 
 if (typeof module !== 'undefined' && module.exports) {
