@@ -241,7 +241,7 @@
     { 
       "id": "corsaroviola",
       "name": "CorsaroViola",
-      "description": "",
+      "description": "Movies & TV shows in 🇺🇸 & 🇮🇹 through IlCorsaroViola + TorBox, with instant HTTP streaming",
       "version": "1.0.0",
       "author": "Batman",
       "supportedTypes": ["movie", "tv"],
