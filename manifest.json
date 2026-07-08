@@ -679,15 +679,15 @@
       "contentLanguage": ["en", "hi"]
     },
     {
-      "id": "multivid",
-      "name": "MultiVid",
-      "description": "MultiVid - Includes VidEasy, VidLink, VidMody & VidSrc",
+      "id": "vidrock",
+      "name": "🪨 VidRock",
+      "description": "VidRock - 1080p 480p and 360p",
       "version": "1.0.0",
       "author": "Nuvio Team",
       "supportedTypes": ["movie", "tv"],
-      "filename": "providers/multivid.js",
+      "filename": "providers/vidrock.js",
       "enabled": true,
-      "hasSettings": true,
+      "hasSettings": false,
       "formats": ["mp4", "m3u8"],
       "logo": "https://i.postimg.cc/brxL7qg3/multivid.png",
       "contentLanguage": ["en"]
