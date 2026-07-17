@@ -369,6 +369,21 @@
       "contentLanguage": ["en", "hi", "ta", "ru"]
     },
     {
+      "id": "hdghartv",
+      "name": "HDGharTV",
+      "description": "HDGhar TV allows users to watch movies, TV shows and web series in English & Hindi.",
+      "version": "1.0.0",
+      "author": "Nuvio Team",
+      "supportedTypes": ["movie", "tv"],
+      "filename": "providers/hdghartv.js",
+      "enabled": true,
+      "hasSettings": false,
+      "formats": ["m3u8"],
+      "logo": "https://i.postimg.cc/761WVpJS/hdghartv.png",
+      "contentLanguage": ["en", "hi"],
+      "limited": false
+    },
+    {
       "id": "hdhub4u",
       "name": "HDHub4u",
       "description": "Direct links from HDHub4u with high-speed download support",
@@ -424,21 +439,6 @@
       "formats": ["mkv", "m3u8"],
       "logo": "https://i.postimg.cc/3N2V7pHc/kurage.png",
       "contentLanguage": ["en", "ja"]
-    },
-    {
-      "id": "hdghartv",
-      "name": "HDGharTV",
-      "description": "HDGhar TV allows users to watch movies, TV shows and web series in English & Hindi.",
-      "version": "1.0.0",
-      "author": "Nuvio Team",
-      "supportedTypes": ["movie", "tv"],
-      "filename": "providers/hdghartv.js",
-      "enabled": true,
-      "hasSettings": false,
-      "formats": ["m3u8"],
-      "logo": "https://i.postimg.cc/761WVpJS/hdghartv.png",
-      "contentLanguage": ["en", "hi"],
-      "limited": false
     },
     {
       "id": "moviebox",
